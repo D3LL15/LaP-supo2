@@ -15,16 +15,14 @@ let rec negIsMember = function
 	| (LETTER(x), ys) -> member(NOT(LETTER(x)), ys)
 	| (NOT(x), ys) -> member(x, ys);;
 
-let rec deleteTaut = function 
-	| ([], _) -> []
-	| (x::xs, ys) -> if (negIsMember(x,ys)) then deleteTaut(xs, ys) else x::deleteTaut(xs, x::ys);;
-
-
+let rec isTaut = function
+	| ([]) -> false
+	| (x::xs) -> if (negIsMember(x,xs)) then true else isTaut(xs);;
 
 
 let rec deleteTauts = function
 	| [] -> []
-	| (x::xs) -> deleteTaut(x, []) :: deleteTauts(xs);;
+	| (x::xs) -> if isTaut(x) then deleteTauts(xs) else  x::deleteTauts(xs);;
 
 
 
@@ -51,16 +49,19 @@ let rec deleteXFromAllClauses = function
 	| (x, y::ys) -> deleteXFromClause(x, y)::deleteXFromAllClauses(x, ys);;
 
 
-
+let rec deleteEmptyClauses = function
+	| [] -> []
+	| (x::xs) -> if (length(x) = 0) then deleteEmptyClauses(xs) else x::deleteEmptyClauses(xs);;
 
 
 let rec doUnitPropagation = function
-	| (xs) -> let (a,b) = getUnitClause(xs) in match a with 
-												| None -> xs
+	| (xs) -> let zs = deleteEmptyClauses(xs) in let (a,b) = getUnitClause(zs) in match a with 
+												| None -> zs
 												| Some([c]) -> let ys = deleteClausesContainingx(c, b) 
 																in match c with 
 																	| NOT(n) -> doUnitPropagation(deleteXFromAllClauses(n, ys))
 																	| LETTER(n) -> doUnitPropagation(deleteXFromAllClauses(NOT(LETTER(n)), ys));;
+																
 
 (* 3 *)
 
@@ -125,24 +126,38 @@ let rec checkForEmptyClause = function
 
 
 (* main *)
+let rec logicPrint = function
+	| NOT(LETTER(x)) -> print_string(String.concat "" [" NOT("; x; ") "])
+	| LETTER(x) -> print_string(x) ;;
 
-let rec DPLL = function 
-	| (xs) -> let ys = deleteTauts(xs) in
-				let zs = doUnitPropagation(ys) in
-				let ws = deleteClausesWithPureLiterals(zs) in
-				if (checkForEmptyClause(ws)) then false else if (length(ws) = 0) then true else 
-						match ws with 
-							| ([NOT(n)::_]::_) -> let js = deleteClausesContainingx(NOT(n), ws)
+let rec printClause = function
+	| [] -> ()
+	| x::xs -> let () = logicPrint(x) in printClause(xs);;
+
+let rec printClauses = function
+	| [] -> print_string("empty set of clauses\n")
+	| x::xs -> let () = let () = print_string("clause:") in printClause(x) in printClauses(xs);;
+
+let rec dpll = function 
+	| (xs) -> let ys = deleteTauts(xs) in let () = printClauses(ys) in
+				if (checkForEmptyClause(ys)) then false else 
+				let zs = doUnitPropagation(ys) in let () = printClauses(zs) in
+				let ws = deleteClausesWithPureLiterals(zs) in let () = printClauses(ws) in
+				(*if (checkForEmptyClause(ws)) then false else *)if (length(ws) = 0) then true else let (f::fs) = ws in let (u::us) = f in
+						match u with 
+							| NOT(n) -> let js = deleteClausesContainingx(NOT(n), ws)
 														in let ks = deleteClausesContainingx(n, js)
-														in DPLL(deleteXFromAllClauses(n, ks)) || DPLL(deleteXFromAllClauses(NOT(n), ks))
-							| ([LETTER(n)::_]::_) -> let js = deleteClausesContainingx(LETTER(n), ws)
+														in dpll(deleteXFromAllClauses(n, ks)) || dpll(deleteXFromAllClauses(NOT(n), ks))
+							| LETTER(n) -> let js = deleteClausesContainingx(LETTER(n), ws)
 														in let ks = deleteClausesContainingx(NOT(LETTER(n)), js)
-														in DPLL(deleteXFromAllClauses(NOT(LETTER(n)), ks)) || DPLL(deleteXFromAllClauses(LETTER(n), ks));;
+														in dpll(deleteXFromAllClauses(NOT(LETTER(n)), ks)) || dpll(deleteXFromAllClauses(LETTER(n), ks));;
 
 
 
 
-let () = print_string (DPLL(   [[LETTER(P)] , [NOT(LETTER(P))]]   ))
+let () = if dpll(   [[LETTER("P")] ; [NOT(LETTER("P"))]]   ) then print_string ("true\n") else print_string("false\n")
+let () = if dpll(   [[LETTER("P")] ; [LETTER("P")]]   ) then print_string ("true\n") else print_string("false\n")
+let () = if dpll(   [[LETTER("P")] ; [NOT(LETTER("P")); LETTER("P")]]   ) then print_string ("true\n") else print_string("false\n")
 let () = print_string "\n"
 	
 	
